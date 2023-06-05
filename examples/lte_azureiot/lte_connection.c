@@ -234,6 +234,7 @@ static int app_wait_lte_callback(int *result)
 
   /* Open message queue for receive */
 
+  printf("  - mq_open();\n");
   mqd = mq_open(APP_MQUEUE_NAME, O_RDONLY);
   if (mqd < 0)
     {
@@ -244,6 +245,7 @@ static int app_wait_lte_callback(int *result)
 
   /* Receive result of callback */
 
+  printf("  - mq_receive();\n");
   ret = mq_receive(mqd, (FAR char*)&buffer, sizeof(buffer), 0);
   if (ret < 0)
     {
@@ -420,6 +422,7 @@ int app_lte_connect_to_lte(void)
    * asynchronous API callback.
    */
 
+  printf("- app_mq_create()\n");
   ret = app_mq_create(APP_MQUEUE_NAME);
   if (ret < 0)
     {
@@ -428,6 +431,7 @@ int app_lte_connect_to_lte(void)
 
   /* Initialize the LTE library */
 
+  printf("- lte_initialize()\n");
   ret = lte_initialize();
   if ((ret < 0) && (ret != -EALREADY))
     {
@@ -441,6 +445,7 @@ int app_lte_connect_to_lte(void)
    * after calling lte_power_on.
    */
 
+  printf("- lte_set_report_restart()\n");
   ret = lte_set_report_restart(app_restart_cb);
   if (ret < 0)
     {
@@ -450,6 +455,7 @@ int app_lte_connect_to_lte(void)
 
   /* Power on the LTE modem */
 
+  printf("- lte_power_on()\n");
   ret = lte_power_on();
   if (ret >= 0)
     {
@@ -459,6 +465,7 @@ int app_lte_connect_to_lte(void)
        * registered by lte_set_report_restart.
        */
 
+      printf("- app_wait_lte_callback()\n");
       ret = app_wait_lte_callback(&result);
       if (ret < 0)
         {
@@ -491,6 +498,7 @@ int app_lte_connect_to_lte(void)
 
   /* Enable to receive events of local time change */
 
+  printf("- lte_set_report_localtime()\n");
   ret = lte_set_report_localtime(app_localtime_report_cb);
   if (ret < 0)
     {
@@ -500,6 +508,7 @@ int app_lte_connect_to_lte(void)
 
   /* Radio on and start to search for network */
 
+  printf("- lte_radio_on_sync()\n");
   ret = lte_radio_on_sync();
   if (ret < 0)
     {
@@ -521,6 +530,7 @@ int app_lte_connect_to_lte(void)
 
   /* Get the session ID. If successful, it means already attached. */
 
+  printf("- app_get_sessionid()\n");
   ret = app_get_sessionid();
   if (ret >= 0)
     {
@@ -539,6 +549,7 @@ int app_lte_connect_to_lte(void)
       apnsetting.user_name = APP_APN_USR_NAME;
       apnsetting.password  = APP_APN_PASSWD;
 
+      printf("- lte_activate_pdn_sync()\n");
       ret = lte_activate_pdn_sync(&apnsetting, &pdn);
       if (ret < 0)
         {
@@ -558,9 +569,11 @@ int app_lte_connect_to_lte(void)
   return 0;
 
 errout_with_lte_fin:
+  printf("- lte_finalize()\n");
   lte_finalize();
 
 errout_with_fin:
+  printf("- app_mq_delete()\n");
   app_mq_delete(APP_MQUEUE_NAME);
 
 errout:

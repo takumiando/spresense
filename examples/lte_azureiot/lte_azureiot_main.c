@@ -47,6 +47,9 @@
 #include "lte_connection.h"
 #include "mbedtls_if.h"
 
+#include <sys/boardctl.h>
+#include <arch/board/board.h>
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -1156,4 +1159,19 @@ int main(int argc, FAR char *argv[])
   printf("LTE disconnect...OK\n\n");
 
   return 0;
+}
+
+int advaly_test_main(int argc, FAR char *argv[])
+{
+	boardctl(BOARDIOC_INIT, 0);
+	sleep(1);
+
+	printf("app_lte_connect_to_lte()...\n");
+	app_lte_connect_to_lte();
+	printf("OK\n");
+
+	while (1)
+		sleep(1);
+
+	return 0;
 }
