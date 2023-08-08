@@ -45,6 +45,7 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <stdlib.h>
+#include <nuttx/clock.h>
 
 #include "lte/lte_api.h"
 
@@ -109,6 +110,111 @@ static uint8_t data_pdn_sid = LTE_PDN_SESSIONID_INVALID_ID;
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
+static time_t uptime_current = 0;
+
+static inline time_t uptime(void)
+{
+	return (time_t)(g_system_timer * CONFIG_USEC_PER_TICK / 1000000);
+}
+
+static inline time_t uptime_interval(void)
+{
+	time_t uptime_last = uptime_current;
+	uptime_current = uptime();
+	return uptime_current - uptime_last;
+}
+
+static int show_lte_quality(void)
+{
+	lte_quality_t quality;
+
+	if (lte_get_quality_sync(&quality)) {
+		printf("Cannot get quality\n");
+		return 1;
+	}
+
+	printf("======== LTE quality ========\n");
+	printf("RSRP: %d\n", quality.rsrp);
+	printf("RSRQ: %d\n", quality.rsrq);
+	printf("SINR: %d\n", quality.sinr);
+	printf("RSSI: %d\n", quality.rssi);
+
+	return 0;
+}
+
+static int show_lte_cellinfo(void)
+{
+	lte_cellinfo_t cellinfo;
+	lte_neighbor_cell_t neighbors[4];
+	int i;
+
+	cellinfo.nr_neighbor = 4;
+	cellinfo.neighbors = neighbors;
+
+	if (lte_get_cellinfo_sync(&cellinfo)) {
+		printf("Cannot get cell info\n");
+		return 1;
+	}
+
+	printf("======== LTE cell info ========\n");
+
+	printf("Valid: ");
+	if (cellinfo.valid) {
+		printf("true\n");
+		printf("Physical cell ID: %lu\n", cellinfo.phycell_id);
+		printf("EARFCN: %lu\n", cellinfo.earfcn);
+		printf("Mobile Country Code: %03u\n", cellinfo.mcc[2]
+						+ cellinfo.mcc[1] * 10
+						+ cellinfo.mcc[0] * 100);
+		printf("Mobile Network Code: ");
+		if (cellinfo.mnc_digit == 2) {
+			printf("%02u\n", cellinfo.mnc[1]
+					+ cellinfo.mnc[0] * 10);
+		}
+		if(cellinfo.mnc_digit == 3) {
+			printf("%03u\n", cellinfo.mnc[2]
+					+ cellinfo.mnc[1] * 10
+					+ cellinfo.mnc[0] * 100);
+		}
+		if (cellinfo.option & LTE_CELLINFO_OPT_GCID) {
+			printf("Global Cell ID: %lu\n", cellinfo.gcid);
+		}
+		if (cellinfo.option & LTE_CELLINFO_OPT_AREACODE) {
+			printf("Tracking Area Code: %u\n", cellinfo.area_code);
+		}
+		if (cellinfo.option & LTE_CELLINFO_OPT_SFN) {
+			printf("Sub Frame Number: %u\n", cellinfo.sfn);
+		}
+		if (cellinfo.option & LTE_CELLINFO_OPT_TIMEDIFFIDX) {
+			printf("Time difference index: %u\n", cellinfo.time_diffidx);
+		}
+		if (cellinfo.option & LTE_CELLINFO_OPT_TA) {
+			printf("Time advance: %u\n", cellinfo.ta);
+		}
+		if (cellinfo.option & LTE_CELLINFO_OPT_NEIGHBOR) {
+			printf("Num of neighbors: %u\n", cellinfo.nr_neighbor);
+			for (i = 0; i < cellinfo.nr_neighbor; i++) {
+				printf("Neighbor cell info[%d]:\n", i);
+				printf("  Physical cell ID: %lu\n", neighbors[i].phycell_id);
+				printf("  EARFCN: %lu\n", neighbors[i].earfcn);
+				if (cellinfo.neighbors[i].option | LTE_CELLINFO_OPT_SFN) {
+					printf("  Sub Frame Number: %u\n", neighbors[i].sfn);
+				}
+				if (cellinfo.neighbors[i].option | LTE_CELLINFO_OPT_RSRP) {
+					printf("  RSRP: %d\n", neighbors[i].rsrp);
+				}
+				if (cellinfo.neighbors[i].option | LTE_CELLINFO_OPT_RSRQ) {
+					printf("  RSRQ: %d\n", neighbors[i].rsrq);
+				}
+			}
+		}
+	} else {
+		printf("false\n");
+	}
+
+	return 0;
+}
 
 /****************************************************************************
  * Name: app_lte_setlocaltime
@@ -539,7 +645,10 @@ int app_lte_connect_to_lte(void)
       apnsetting.user_name = APP_APN_USR_NAME;
       apnsetting.password  = APP_APN_PASSWD;
 
+      uptime_interval();
       ret = lte_activate_pdn_sync(&apnsetting, &pdn);
+      printf("lte_activate_pdn_sync(): %lu\n", uptime_interval());
+
       if (ret < 0)
         {
           printf("Failed to activate PDN :%d\n", ret);
@@ -554,6 +663,9 @@ int app_lte_connect_to_lte(void)
       app_show_pdn(&pdn);
       data_pdn_sid = pdn.session_id;
     }
+
+  show_lte_cellinfo();
+  show_lte_quality();
 
   return 0;
 

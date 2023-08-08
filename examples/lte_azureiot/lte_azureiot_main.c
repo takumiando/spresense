@@ -42,10 +42,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <time.h>
 #include <sys/stat.h>
 #include "azureiot_if.h"
 #include "lte_connection.h"
 #include "mbedtls_if.h"
+#include <sys/boardctl.h>
+#include <nuttx/arch.h>
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -134,6 +137,20 @@ static char PrimaryKey[AZURE_IOT_INFO_PRIKEY_MAX_SIZE];
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
+
+static int show_datetime(void)
+{
+	char fmt[32];
+	struct timespec tp;
+	struct tm t;
+
+	up_rtc_gettime(&tp);
+	t = *localtime(&tp.tv_sec);
+	strftime(fmt, sizeof(fmt), "%Y-%m-%d %H:%M:%S", &t);
+
+	printf("Datetime: %s\n", fmt);
+	return 0;
+}
 
 static char *strnstr(const char *str,
                      int         buflen,
@@ -1156,4 +1173,18 @@ int main(int argc, FAR char *argv[])
   printf("LTE disconnect...OK\n\n");
 
   return 0;
+}
+
+int lte_connection_test_main(int argc, FAR char *argv[])
+{
+	boardctl(BOARDIOC_INIT, 0);
+	sleep(1);
+	printf("=== LTE connect uptime test ===\n");
+
+	show_datetime();
+	app_lte_connect_to_lte();
+
+	printf("Rebooting...\n");
+	sleep(1);
+	return boardctl(BOARDIOC_RESET, 0);
 }
